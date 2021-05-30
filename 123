@@ -1,0 +1,411 @@
+#define _CRT_SECURE_NO_DEPRECATE
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdint.h>
+#include <math.h>
+#include <png.h>
+#include <string.h>
+
+/*Глобальные переменные*/
+int n = 10; // Размер массива
+int m = 1; // Коэффициент масштабирования
+int do_count = 0; // Датчик вывода считчика в консоль
+
+void Draw(int** array, int n, int m);
+int counter = 0;
+int* Make_1D_array(int n)
+{
+	int* array = (int*)calloc(n, sizeof(int));
+	for (int i = 0; i < n; ++i)
+		array[i] = 0;
+	return array;
+}
+int** Make_2D_array(int n, int m)
+{
+	int** array = (int**)calloc(m, sizeof(int*));
+	for (int i = 0; i < m; ++i)
+		array[i] = Make_1D_array(n);
+	return array;
+}
+void Random(int** array, int n, int m)
+{
+	for (size_t k = 0; k < m; k++)
+	{
+		int metka = 0;
+		for (size_t i = 0; i < n;)
+		{
+			metka = 0;
+			int x = rand() % n;
+			for (size_t j = 0; j < i; j++)
+			{
+				if (array[k][j] == x)
+				{
+					metka = 1;
+					break;
+				}
+			}
+			if (metka == 0)
+			{
+				array[k][i] = x;
+				i++;
+			}
+		}
+	}
+}
+void Copy(int** array1, int** array2, int n)
+{
+	for (int i = 0; i < n; i++)
+	{
+		for (int j = 0; j < n; j++)
+		{
+			array2[j][i] = array1[j][i];
+		}
+	}
+}
+void Shell_sort1d(int** array2, int str, int n, int k)
+{
+	int c = 0;
+	for (int s = n / 2; s > 0; s /= 2)
+	{
+		for (int i = 0; i < n; i++)
+		{
+			for (int j = i + s; j < n; j += s)
+			{
+				if (array2[str][i] > array2[str][j])
+				{
+					int temp = array2[str][j];
+					array2[str][j] = array2[str][i];
+					array2[str][i] = temp;
+				}
+
+				if (c >= k) return;
+				c++;
+			}
+		}
+	}
+}
+int sravn(int** array1, int** array2, int n)
+{
+	for (int i = 0; i < n; i++)
+	{
+		for (int j = 0; j < n; j++)
+		{
+			if (array2[j][i] != array1[j][i])
+			{
+				return 1;
+			}
+		}
+	}
+}
+void Shell_sort(int** array, int n, int m)
+{
+	int** array3 = Make_2D_array(n, n);
+	for (int k = 0; k < 3000; k++)
+	{
+		int** array2 = Make_2D_array(n, n);
+		Copy(array, array2, n);
+
+
+		for (size_t str = 0; str < n; str++)
+		{
+			Shell_sort1d(array2, str, n, k);
+		}
+		if (sravn(array2, array3, n) == 1)
+			Draw(array2, n, m);
+		Copy(array2, array3, n);
+		for (int i = 0; i < n; i++)
+			free(array2[i]);
+		free(array2);
+		array2 = NULL;
+
+	}
+	for (int i = 0; i < n; i++)
+		free(array3[i]);
+	free(array3);
+	array3 = NULL;
+}
+#define COLORMAP__SIZE 16
+float colormap[COLORMAP__SIZE][3] =
+{
+	/* hsv */
+	{1.00000,   0.00000,   0.00000},
+	{1.00000,   0.37500,   0.00000},
+	{1.00000,   0.75000,   0.00000},
+	{0.87500,   1.00000,   0.00000},
+	{0.50000,   1.00000,   0.00000},
+	{0.12500,   1.00000,   0.00000},
+	{0.00000,   1.00000,   0.25000},
+	{0.00000,   1.00000,   0.62500},
+	{0.00000,   1.00000,   1.00000},
+	{0.00000,   0.62500,   1.00000},
+	{0.00000,   0.25000,   1.00000},
+	{0.12500,   0.00000,   1.00000},
+	{0.50000,   0.00000,   1.00000},
+	{0.87500,   0.00000,   1.00000},
+	{1.00000,   0.00000,   0.75000},
+	{1.00000,   0.00000,   0.37500}
+
+	/* jet */
+	/*{0.00000,   0.00000,   0.75000},
+	{0.00000,   0.00000,   1.00000},
+	{0.00000,   0.25000,   1.00000},
+	{0.00000,   0.50000,   1.00000},
+	{0.00000,   0.75000,   1.00000},
+	{0.00000,   1.00000,   1.00000},
+	{0.25000,   1.00000,   0.75000},
+	{0.50000,   1.00000,   0.50000},
+	{0.75000,   1.00000,   0.25000},
+	{1.00000,   1.00000,   0.00000},
+	{1.00000,   0.75000,   0.00000},
+	{1.00000,   0.50000,   0.00000},
+	{1.00000,   0.25000,   0.00000},
+	{1.00000,   0.00000,   0.00000},
+	{0.75000,   0.00000,   0.00000},
+	{0.50000,   0.00000,   0.00000}*/
+};
+
+float colormap_interp(float v0, float v1, float t)
+{
+	return t * v1 + (1.0f - t) * v0;
+}
+float clamp(float min, float max, float v)
+{
+	return fmaxf(fminf(v, max), min);
+}
+/* в функцию передаём значение, и границы значения.
+ * Например, в value можно передавать число от 0 до 25,
+ * если указывать границы min = 0, max = 25.
+ * Результат, цвет RGB, будет записываться в r, g, b
+ * Результат нормированный в сегменте [0, 1], поэтому
+ * для использования необходимо домножить на 255. */
+typedef struct
+{
+	uint8_t red;
+	uint8_t green;
+	uint8_t blue;
+	uint8_t alpha;
+} pixel_t;
+typedef struct
+{
+	pixel_t* pixels;
+	int width;
+	int height;
+} bitmap_t;
+static pixel_t* pixel_at(bitmap_t* bitmap, int x, int y)
+{
+	return bitmap->pixels + bitmap->width * y + x;
+}
+static int save_png_to_file(bitmap_t* bitmap, const char* path)
+{
+	FILE* fp;
+	png_structp png_ptr = NULL;
+	png_infop info_ptr = NULL;
+	int x, y;
+	png_byte** row_pointers = NULL;
+	/* "status" contains the return value of this function. At first
+	it is set to a value which means 'failure'. When the routine
+	has finished its work, it is set to a value which means
+	'success'. */
+	int status = -1;
+	/* The following number is set by trial and error only. I cannot
+	see where it it is documented in the libpng manual.
+	*/
+	int pixel_size = 4;
+	int depth = 8;
+
+	fp = fopen(path, "wb");
+	if (!fp)
+	{
+		goto fopen_failed;
+	}
+
+	png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
+	if (png_ptr == NULL)
+	{
+		goto png_create_write_struct_failed;
+	}
+
+	info_ptr = png_create_info_struct(png_ptr);
+	if (info_ptr == NULL)
+	{
+		goto png_create_info_struct_failed;
+	}
+
+	/* Set up error handling. */
+
+	if (setjmp(png_jmpbuf(png_ptr)))
+	{
+		goto png_failure;
+	}
+
+	/* Set image attributes. */
+
+	png_set_IHDR(png_ptr,
+		info_ptr,
+		bitmap->width,
+		bitmap->height,
+		depth,
+		PNG_COLOR_TYPE_RGBA,
+		PNG_INTERLACE_NONE,
+		PNG_COMPRESSION_TYPE_DEFAULT,
+		PNG_FILTER_TYPE_DEFAULT);
+
+	/* Initialize rows of PNG. */
+
+	row_pointers = (png_byte**)png_malloc(png_ptr, bitmap->height * sizeof(png_byte*));
+	for (y = 0; y < bitmap->height; ++y)
+	{
+		png_byte* row = (png_byte*)png_malloc(png_ptr, sizeof(uint8_t) * bitmap->width * pixel_size);
+		row_pointers[y] = row;
+		for (x = 0; x < bitmap->width; ++x)
+		{
+			pixel_t* pixel = pixel_at(bitmap, x, y);
+			*row++ = pixel->red;
+			*row++ = pixel->green;
+			*row++ = pixel->blue;
+			*row++ = pixel->alpha;
+		}
+	}
+
+	/* Write the image data to "fp". */
+
+	png_init_io(png_ptr, fp);
+	png_set_rows(png_ptr, info_ptr, row_pointers);
+	png_write_png(png_ptr, info_ptr, PNG_TRANSFORM_IDENTITY, NULL);
+
+	/* The routine has successfully written the file, so we set
+	"status" to a value which indicates success. */
+
+	status = 0;
+
+	for (y = 0; y < bitmap->height; y++)
+	{
+		png_free(png_ptr, row_pointers[y]);
+	}
+	png_free(png_ptr, row_pointers);
+
+png_failure:
+png_create_info_struct_failed:
+	png_destroy_write_struct(&png_ptr, &info_ptr);
+png_create_write_struct_failed:
+	fclose(fp);
+fopen_failed:
+	return status;
+}
+/*
+static int pix(int value, int max)
+{
+	if (value < 0)
+		return 0;
+	return (int)(256.0 * ((double)(value) / (double)max));
+}*/
+
+void colormap_rgbf(float value, float min, float max, float* r, float* g, float* b)
+{
+	int colors_n = COLORMAP__SIZE - 1;
+	float clamped = clamp(min, max, value);
+	float step = (max - min) / (float)(colors_n);
+
+	float slot;
+	float pos = modff((clamped - min) / step, &slot);
+
+	int point1 = (int)slot;
+	int point2 = point1 < colors_n ? point1 + 1 : colors_n;
+
+	*r = colormap_interp(colormap[point1][0], colormap[point2][0], pos);
+	*g = colormap_interp(colormap[point1][1], colormap[point2][1], pos);
+	*b = colormap_interp(colormap[point1][2], colormap[point2][2], pos);
+}
+void Draw(int** array, int n, int m)
+{
+	bitmap_t fruit;
+	int x, y;
+	fruit.width = n * m;
+	fruit.height = n * m;
+	fruit.pixels = (pixel_t*)calloc(sizeof(pixel_t), fruit.width * fruit.height);
+	for (y = 0; y < fruit.height; y++)
+	{
+		for (x = 0; x < fruit.width; x++)
+		{
+			pixel_t* pixel = pixel_at(&fruit, x, y);
+			pixel->red = 255;
+			pixel->green = 255;
+			pixel->blue = 255;
+			pixel->alpha = 255;
+		}
+	}
+	for (y = 0; y < fruit.height; y++)
+	{
+		for (x = 0; x < fruit.width; x++)
+		{
+			for (int i = 0; i < m; i++)
+			{
+				float r, g, b;
+				colormap_rgbf(array[y / m][x / m], 0, fruit.width / m, &r, &g, &b);
+				int R = r * 255;
+				int G = g * 255;
+				int B = b * 255;
+
+				pixel_t* pixel = pixel_at(&fruit, x, y);
+				pixel->red = R;
+				pixel->green = G;
+				pixel->blue = B;
+			}
+		}
+	}
+	counter++;
+	save_png_to_file(&fruit, "fruit.png");
+	char buffer[100];
+	sprintf(buffer, "%05d.png", counter);
+	save_png_to_file(&fruit, buffer);
+
+	free(fruit.pixels);
+}
+int menu(int argc, char** argv)
+{
+	if (strcmp("-h", argv[1]) == 0)
+	{
+		printf("Program for SHELL SORT visualization.\nGeneral options :\n\t-n[--number]\t\tNumber of values to sort\n\t-s[--size]\t\tBox size for each value(in pixels)\n\t-c[--complexity]\t\tPrint number of swaps / comparisions\n\t-h[--help]\t\tShow help\n");
+		return 0;
+	}
+	else
+	{
+		for (size_t i = 1; i < argc; i++)
+		{
+			if (strcmp("-n", argv[i]) == 0)
+			{
+				n = atoi(argv[i + 1]);
+			}
+			else if (strcmp("-s", argv[i]) == 0)
+			{
+				m = atoi(argv[i + 1]);
+			}
+			else if (strcmp("-c", argv[i]) == 0)
+			{
+				do_count = 1;
+			}			
+		}
+		return 1;
+	}
+}
+int main(int argc, char** argv)
+{
+	int ret = menu(argc, argv);
+	if (ret == 0)
+	{
+		return 0;
+	}
+	else if (ret == 1)
+	{
+		int** array = Make_2D_array(n, n);
+		Random(array, n, n);
+		Shell_sort(array, n, m);
+		for (int i = 0; i < n; i++)
+			free(array[i]);
+		free(array);
+		array = NULL;
+		if (do_count == 1) { printf("Done! Number of swaps = %d", counter); }
+		else { printf("Done!"); }
+		return 0;
+	}	
+}
